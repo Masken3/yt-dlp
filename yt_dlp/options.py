@@ -1047,6 +1047,10 @@ def create_parser():
             'For ffmpeg, arguments can be passed to different positions using the same syntax as --postprocessor-args. '
             'You can use this option multiple times to give different arguments to different downloaders '
             '(Alias: --external-downloader-args)'))
+    downloader.add_option(
+        '--roosterteeth-ad-filter',
+        action='store_true', dest='roosterteeth_ad_filter',
+        help='Filter ads from roosterteeth HLS videos.')
 
     workarounds = optparse.OptionGroup(parser, 'Workarounds')
     workarounds.add_option(

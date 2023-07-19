@@ -126,7 +126,12 @@ class HlsFD(FragmentFD):
             return (s.startswith('#ANVATO-SEGMENT-INFO') and 'type=master' in s
                     or s.startswith('#UPLYNK-SEGMENT') and s.endswith(',segment'))
 
+        # Start of fragments list. We will need to modify it later, to exclude ad fragments.
         fragments = []
+
+        # To do that, we will use DISCONTINUITY markers to separate groups of fragments.
+        groups = []
+        group_start_index = 0
 
         media_frags = 0
         ad_frags = 0
@@ -264,7 +269,40 @@ class HlsFD(FragmentFD):
                     ad_frag_next = False
                 elif line.startswith('#EXT-X-DISCONTINUITY'):
                     discontinuity_count += 1
+                    groups.append({
+                        'start': group_start_index,
+                        'len': len(fragments) - group_start_index,
+                    })
+                    group_start_index = len(fragments)
                 i += 1
+
+        # Final group.
+        if(group_start_index != len(fragments)):
+            groups.append({
+                'start': group_start_index,
+                'len': len(fragments) - group_start_index,
+            })
+        # Determine ad-ness: length < total / 10.
+        for g in groups:
+            g['is_ad'] = (g['len'] < (len(fragments) / 10))
+
+        # Remove ad groups from fragments list.
+        filtered_fragments = []
+        ad_fragment_count = 0
+        for g in groups:
+            s = g['start']
+            l = g['len']
+            if(g['is_ad']):
+                ad_fragment_count += l
+            else:
+                filtered_fragments += fragments[s : (s+l)]
+        # Double-check that the resulting list has the expected length.
+        expected_length = len(fragments) - ad_fragment_count
+        assert(len(filtered_fragments) == expected_length)
+        # Replace old list with new.
+        if(self.params.get('roosterteeth_ad_filter')):
+            fragments = filtered_fragments
+            ctx['total_frags'] = len(fragments)
 
         # We only download the first fragment during the test
         if self.params.get('test', False):
